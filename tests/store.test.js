@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {secondsLeft,elapsedText,isValidNumber,initialState,restoreState,createIncident,addEvent,operatorSummary,reachHeadline,bystanderPatient,selectedPatient,primaryContact,circleMessage,osmEmbed} from '../src/store.js';
+test('countdown uses wall clock and clamps at zero',()=>{assert.equal(secondsLeft(5000,0),5);assert.equal(secondsLeft(5000,4999),1);assert.equal(secondsLeft(5000,6000),0)});
+test('elapsed survives reload',()=>assert.equal(elapsedText('2026-01-01T00:00:00Z',Date.parse('2026-01-01T00:02:14Z')),'02:14'));
+test('phone validation',()=>{assert.equal(isValidNumber('112'),true);assert.equal(isValidNumber('+91 98765 43210'),true);assert.equal(isValidNumber(''),false);assert.equal(isValidNumber('abc'),false)});
+test('restoration repairs invalid selection',()=>{const d=initialState();d.selectedId='missing';assert.equal(restoreState(d).selectedId,d.ownerId);assert.equal(restoreState(null).profiles.length,1)});
+test('bystander does not inherit owner medical details',()=>{const d=initialState();d.profiles[0].allergies='Private allergy';const s=createIncident('bystander',bystanderPatient({ageGroup:'Adult'}),null);assert.equal(s.patient.allergies,'Unknown');assert.ok(!operatorSummary(s).includes('Private allergy'))});
+test('provider headline requires verification',()=>{assert.equal(reachHeadline({state:'en_route'}),'Your Reach Me incident is ready');assert.equal(reachHeadline({state:'en_route',verified:true}),'Emergency services are reaching you')});
+test('local session does not claim callback or alerts',()=>{const s=createIncident('resq',initialState().profiles[0],null);assert.equal(s.callback.state,'not_connected');assert.equal(s.alerts.state,'not_connected');assert.equal(s.provider.verified,false)});
+test('corrections append events',()=>{const s=createIncident('resq',initialState().profiles[0],null);assert.equal(addEvent(s,'Correction','Changed patient').events.length,2);assert.equal(s.events.length,1)});
+test('unknown selection, primary contact and map helpers',()=>{const d=initialState();d.selectedId='other';assert.equal(selectedPatient(d).unknown,true);d.contacts=[{id:'a',number:'9876543210'},{id:'b',number:'9123456789',primary:true}];assert.equal(primaryContact(d).id,'b');const s=createIncident('resq',d.profiles[0],{lat:12.97,lng:77.59});assert.match(circleMessage(s),/maps.google.com/);assert.match(osmEmbed(s.location),/openstreetmap.org/)});
